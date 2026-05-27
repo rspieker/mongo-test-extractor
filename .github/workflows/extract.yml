@@ -56,7 +56,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="extraction-$(date +%Y-%m-%dT%H:%M)"
+          TAG="extraction-$(date +%Y%m%d%H%M)"
           gh release create "$TAG" test-cases.ndjson checksum.sha256 \
             --title "Extraction $TAG" \
             --notes "Extracted from mongodb/mongo jstests/core/query"
