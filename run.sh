@@ -1,8 +1,12 @@
-# Checkout MongoDB jstests
-git clone --filter=blob:none --sparse https://github.com/mongodb/mongo.git
-cd mongo
-git sparse-checkout set jstests/core
+#!/usr/bin/env bash
+set -e
 
-# Run extraction
-cd ..
+# Checkout MongoDB jstests (skip if already cloned)
+if [ ! -d mongo ]; then
+  git clone --filter=blob:none --sparse --depth=1 \
+    https://github.com/mongodb/mongo.git mongo
+  git -C mongo sparse-checkout set jstests/core/query
+fi
+
 npx tsx src/collect.ts mongo/jstests/core/query --output=results.ndjson --verbose
+npx tsx src/interpret.ts results.ndjson test-cases.ndjson
