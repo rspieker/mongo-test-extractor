@@ -1,0 +1,42 @@
+name: Extract MongoDB test cases
+
+on:
+  schedule:
+    - cron: '0 4 1 * *'  # first of every month
+  workflow_dispatch:
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - run: npm ci
+
+      - name: Sparse checkout MongoDB jstests
+        run: |
+          git clone --filter=blob:none --sparse --depth=1 \
+            https://github.com/mongodb/mongo.git mongo
+          git -C mongo sparse-checkout set jstests/core/query
+
+      - name: Collect
+        run: npx tsx src/collect.ts mongo/jstests/core/query --output=results.ndjson
+
+      - name: Interpret
+        run: npx tsx src/interpret.ts results.ndjson test-cases.ndjson
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="extraction-$(date +%Y-%m-%d)"
+          gh release create "$TAG" test-cases.ndjson \
+            --title "Extraction $TAG" \
+            --notes "Extracted from mongodb/mongo jstests/core/query"
