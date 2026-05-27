@@ -2,7 +2,7 @@ name: Extract MongoDB test cases
 
 on:
   schedule:
-    - cron: '0 4 1 * *'  # first of every month
+    - cron: "0 6 * * 3,6" # 06:00 wed,sat
   workflow_dispatch:
 
 jobs:
@@ -16,7 +16,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: "22"
 
       - run: npm ci
 
