@@ -45,6 +45,7 @@ export function runTest(filePath: string): ExtractedTest {
   const recorded = create(root, {
     callback: (r) => sequence.push(r),
     only: ["get", "apply"],
+    truncate: 500,
   });
 
   const context = vm.createContext({
