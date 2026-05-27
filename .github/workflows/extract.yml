@@ -32,11 +32,31 @@ jobs:
       - name: Interpret
         run: npx tsx src/interpret.ts results.ndjson test-cases.ndjson
 
-      - name: Publish
+      - name: Compute checksum
+        run: sha256sum test-cases.ndjson | awk '{print $1}' > checksum.sha256
+
+      - name: Check if output changed
+        id: changed
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="extraction-$(date +%Y-%m-%d)"
-          gh release create "$TAG" test-cases.ndjson \
+          mkdir -p /tmp/prev
+          if gh release download --pattern 'checksum.sha256' --dir /tmp/prev 2>/dev/null; then
+            if cmp -s checksum.sha256 /tmp/prev/checksum.sha256; then
+              echo "result=false" >> $GITHUB_OUTPUT
+            else
+              echo "result=true" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "result=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish
+        if: steps.changed.outputs.result == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="extraction-$(date +%Y-%m-%dT%H:%M)"
+          gh release create "$TAG" test-cases.ndjson checksum.sha256 \
             --title "Extraction $TAG" \
             --notes "Extracted from mongodb/mongo jstests/core/query"
