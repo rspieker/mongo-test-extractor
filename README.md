@@ -4,9 +4,15 @@ Extracts structured test cases from MongoDB's official [jstests](https://github.
 
 ## How it works
 
-**Step 1 — collect:** each jstest is executed inside a Node.js `vm` sandbox with `db` and `assert` replaced by recording proxies powered by [flugrekorder](https://github.com/rspieker/flugrekorder). Every property access and function call is captured without needing a real MongoDB instance.
+MongoDB's jstests are plain JavaScript files. They set up documents, run queries, and assert results — all through a `db` global and an `assert` global. That's the seam this tool exploits.
 
-**Step 2 — interpret:** the raw recording is walked to reconstruct a timeline — collection state at each point, the query that ran against it, and the assertion the test author expected to hold.
+**Step 1 — collect:** each jstest is executed inside a Node.js `vm` sandbox. ES6 imports are stripped so the files run without their test harness. The `db` and `assert` globals are replaced with transparent recording proxies powered by [flugrekorder](https://github.com/rspieker/flugrekorder), which intercepts every property access and function call and logs it — without needing a real MongoDB instance, without mocking any return values, without caring what the test is actually testing.
+
+The result is a faithful trace of everything the test did: which collections it wrote to, with what documents, which queries it ran, and which assertions it made.
+
+**Step 2 — interpret:** the raw trace is walked to reconstruct a timeline per test file. A path map resolves proxy IDs back to their dotted call paths (`db.jstests_all.find`). Each call is classified as a write (building up collection state), a query (the thing we want to capture), or an assertion (the expected outcome). Proxy ID chains link assertion arguments back to the query result they reference.
+
+The output for each query is: the collection state at that moment, the query itself, and the assertion the test author expected to hold — a complete, self-contained test case derived entirely from MongoDB's own test suite.
 
 The output is a newline-delimited JSON file where each line is a self-contained test case:
 
