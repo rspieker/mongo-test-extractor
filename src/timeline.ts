@@ -8,6 +8,7 @@ export interface TestCase {
   method: string;
   filter: Serialized[];
   context: Serialized[];
+  indices: Serialized[];
   assertion: { method: string; expected: Serialized } | null;
 }
 
@@ -16,6 +17,8 @@ export function buildTimeline(source: string, sequence: Rekording[]): TestCase[]
 
   // collection name → current documents
   const state = new Map<string, Serialized[]>();
+  // collection name → current index specs
+  const indexState = new Map<string, Serialized[]>();
   // query resultId → test case (filled in, awaiting assertion)
   const pending = new Map<string, TestCase>();
   // all completed test cases
@@ -44,6 +47,22 @@ export function buildTimeline(source: string, sequence: Rekording[]): TestCase[]
         const arg = call.args[0];
         if (Array.isArray(arg)) docs.push(...arg);
         state.set(call.collection, docs);
+      } else if (call.method === "createIndex" || call.method === "ensureIndex") {
+        const indices = indexState.get(call.collection) ?? [];
+        if (call.args[0] !== undefined) indices.push(call.args[0]);
+        indexState.set(call.collection, indices);
+      } else if (call.method === "createIndexes") {
+        const indices = indexState.get(call.collection) ?? [];
+        const arg = call.args[0];
+        if (Array.isArray(arg)) {
+          for (const spec of arg) {
+            const key = (typeof spec === "object" && spec !== null && "key" in (spec as object))
+              ? (spec as Record<string, unknown>)["key"] as Serialized
+              : spec as Serialized;
+            if (key !== undefined) indices.push(key);
+          }
+        }
+        indexState.set(call.collection, indices);
       }
       continue;
     }
@@ -55,6 +74,7 @@ export function buildTimeline(source: string, sequence: Rekording[]): TestCase[]
         method: call.method,
         filter: call.args,
         context: [...(state.get(call.collection) ?? [])],
+        indices: [...(indexState.get(call.collection) ?? [])],
         assertion: null,
       };
       pending.set(call.resultId, tc);
